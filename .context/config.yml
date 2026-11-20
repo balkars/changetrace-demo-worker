@@ -1,0 +1,7 @@
+project: Worker service
+base_branch: main
+github: balkars/changetrace-demo-worker
+environments: [dev]
+slack:
+  pr_channel: "#engineering-prs"
+  dev_channel: "#engineering-dev"
