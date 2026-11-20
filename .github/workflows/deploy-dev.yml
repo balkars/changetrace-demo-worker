@@ -1,0 +1,37 @@
+name: Deploy to dev
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      deployments: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ChangeTrace and test tools
+        run: pip install "changetrace @ git+https://github.com/balkars/changetrace@main" pytest
+
+      - name: Deploy (stand-in — replace with the real deploy)
+        run: |
+          python -m pytest -q
+          python -m worker.retry --smoke
+
+      - name: Report deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEV }}
+        run: ct deploy report --env dev --sha ${{ github.sha }} --run-number ${{ github.run_number }}

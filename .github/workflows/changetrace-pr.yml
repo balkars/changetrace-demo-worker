@@ -1,0 +1,47 @@
+name: ChangeTrace PR check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  changetrace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ChangeTrace
+        run: pip install "changetrace @ git+https://github.com/balkars/changetrace@main"
+
+      - name: Validate records
+        run: ct validate
+
+      - name: Check for conflicts with recorded decisions
+        run: ct check --base origin/${{ github.base_ref }} --format markdown > ct.md || echo conflict > ct.failed
+
+      - name: Post sticky comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body-file ct.md --edit-last \
+            || gh pr comment ${{ github.event.pull_request.number }} --body-file ct.md
+
+      - name: Notify Slack
+        if: github.event.action == 'opened' || github.event.action == 'ready_for_review'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_PRS }}
+        run: ct notify slack pr --pr ${{ github.event.pull_request.number }}
+
+      - name: Fail on conflict
+        run: test ! -f ct.failed
